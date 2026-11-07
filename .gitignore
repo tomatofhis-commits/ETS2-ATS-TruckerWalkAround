@@ -1,0 +1,22 @@
+# Build Outputs & Binaries
+*.dll
+*.exe
+*.obj
+*.lib
+*.exp
+*.pdb
+*.ilk
+
+# Visual Studio / Compiler Cache
+.vs/
+*.user
+*.suo
+
+# Temporary & Log files
+*.log
+TruckerWalkAround_Live.log
+__pycache__/
+*.pyc
+
+# Distribution packages (Publish via GitHub Releases instead)
+TruckerWalkAround_Setup_*.exe
