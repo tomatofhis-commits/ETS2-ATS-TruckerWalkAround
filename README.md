@@ -91,4 +91,9 @@ build_all.bat
 ---
 
 ## 📄 License
-This project is licensed under the [MIT License](LICENSE).
+
+This project is licensed under a **Custom Non-Commercial License (with SCS Software Exemption)**:
+- **Non-Commercial**: Free for personal, non-commercial use, modding, and sharing. Commercial use or paid distribution by third parties is strictly prohibited.
+- **SCS Software Exemption**: **SCS Software s.r.o.** is explicitly granted unrestricted, royalty-free rights to adopt, modify, integrate, and distribute this software or its codebase commercially within their official games and services (ETS2 / ATS).
+
+See [LICENSE](LICENSE) for full details.
