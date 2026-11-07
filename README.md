@@ -6,7 +6,7 @@
 
 ---
 
-## 🌟 Overview
+## Overview
 
 **TruckerWalkAround** allows you to get out of your truck cabin and freely explore the game world on foot with realistic physics, collision detection, and step-climbing.
 
@@ -14,7 +14,7 @@ Unlike traditional mods, this tool uses a dedicated external manager (`TruckerWa
 
 ---
 
-## ✨ Key Features
+## Key Features
 
 - **PhysX Real-Time Physics Engine Integration**: Direct raycasting against game world colliders for realistic ground elevation, step-climbing (up to 0.45m), and gravity.
 - **Dedicated Binaries for ATS & ETS2**: Distinct 64-bit plugins (`TruckerWalkAround_ATS.dll` and `TruckerWalkAround_ETS2.dll`) optimized specifically for each game's memory layouts.
@@ -25,7 +25,7 @@ Unlike traditional mods, this tool uses a dedicated external manager (`TruckerWa
 
 ---
 
-## 🎮 Controls & Keybindings
+## Controls & Keybindings
 
 | Key | Action | Description |
 | :--- | :--- | :--- |
@@ -41,7 +41,7 @@ Unlike traditional mods, this tool uses a dedicated external manager (`TruckerWa
 
 ---
 
-## 🚀 How to Use
+## How to Use
 
 1. Download the latest installer `TruckerWalkAround_Setup_v1.0_beta.exe` from [**Releases**](../../releases).
 2. Run the installer and launch **TruckerWalkAround**.
@@ -52,7 +52,7 @@ Unlike traditional mods, this tool uses a dedicated external manager (`TruckerWa
 
 ---
 
-## ⚠️ Notes & Tips
+## Notes & Tips
 
 1. **Collision on Static Parked Cars**:
    - In SCS games, some pre-placed scenery background vehicles (especially in parking lots / rest stops) lack physical colliders by game engine design. Walking through them is expected behavior and not a bug.
@@ -61,7 +61,7 @@ Unlike traditional mods, this tool uses a dedicated external manager (`TruckerWa
 
 ---
 
-## 🛡️ Security & VirusTotal Verification
+## Security & VirusTotal Verification
 
 Because this tool reads and writes memory addresses (PhysX, camera, CVars) and manages `.dll` files in game directories, some aggressive heuristic antivirus scanners may flag it with generic warnings.
 
@@ -71,7 +71,7 @@ The build is completely clean and verified safe by over 70 security engines on V
 
 ---
 
-## 🛠️ Building from Source
+## Building from Source
 
 ### Prerequisites
 - Visual Studio 2022 / Build Tools (MSVC x64 compiler `cl.exe`)
@@ -90,7 +90,7 @@ build_all.bat
 
 ---
 
-## 📄 License
+## License
 
 This project is licensed under a **Custom Non-Commercial License (with SCS Software Exemption)**:
 - **Non-Commercial**: Free for personal, non-commercial use, modding, and sharing. Commercial use or paid distribution by third parties is strictly prohibited.
