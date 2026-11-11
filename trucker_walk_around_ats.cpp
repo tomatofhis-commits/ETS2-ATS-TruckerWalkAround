@@ -120,6 +120,8 @@ typedef scs_u32_t (*scs_telemetry_unregister_from_event_t)(const scs_event_t eve
 
 #define SCS_TELEMETRY_EVENT_frame_start 1
 #define SCS_TELEMETRY_EVENT_frame_end   2
+#define SCS_TELEMETRY_EVENT_paused      3
+#define SCS_TELEMETRY_EVENT_started     4
 
 #pragma pack(push, 8)
 struct scs_telemetry_init_params_v100_t {
@@ -237,6 +239,8 @@ static double g_truckWorldY = 0.0;
 static double g_truckWorldZ = 0.0;
 static float  g_truckSpeed  = 0.0f;
 static bool   g_hasTruckWorld = false;
+static bool   g_gamePaused = false;
+static bool   g_parkingBrakeOn = false;
 
 // カメラ構造体
 static uintptr_t g_camMgrSingletonPtr = 0;
@@ -364,6 +368,35 @@ static void TelemetryPlacementCallback(const scs_string_t, const scs_u32_t, cons
 static void TelemetrySpeedCallback(const scs_string_t, const scs_u32_t, const scs_value_t* const value, const scs_context_t) {
     if (value && value->type == SCS_VALUE_TYPE_float) {
         g_truckSpeed = std::abs(value->value_float);
+    }
+}
+
+static void TelemetryPauseCallback(const scs_event_t event, const void* const event_info, const scs_context_t context) {
+    if (event == SCS_TELEMETRY_EVENT_paused) {
+        g_gamePaused = true;
+        TruckerLog("[telemetry] ゲームポーズ/メニュー画面検知 (SCS_TELEMETRY_EVENT_paused)\n");
+    } else if (event == SCS_TELEMETRY_EVENT_started) {
+        g_gamePaused = false;
+        TruckerLog("[telemetry] 走行状態復帰検知 (SCS_TELEMETRY_EVENT_started)\n");
+    }
+}
+
+// ゲームウィンドウ上でマウスカーソルが表示されているか判定（メニュー画面検知）
+static bool IsInGameMenuCursorVisible() {
+    CURSORINFO ci;
+    memset(&ci, 0, sizeof(ci));
+    ci.cbSize = sizeof(CURSORINFO);
+    if (GetCursorInfo(&ci)) {
+        if (ci.flags & CURSOR_SHOWING) {
+            return true;
+        }
+    }
+    return false;
+}
+
+static void TelemetryParkingBrakeCallback(const scs_string_t, const scs_u32_t, const scs_value_t* const value, const scs_context_t) {
+    if (value && value->type == SCS_VALUE_TYPE_bool) {
+        g_parkingBrakeOn = (value->value_bool != 0);
     }
 }
 
@@ -1638,6 +1671,7 @@ static scs_telemetry_unregister_from_event_t g_unregisterEventFn = nullptr;
 // -----------------------------------------------------------------------------
 static void TelemetryFrameStartCallback(const scs_event_t event, const void* const event_info, const scs_context_t context) {
     if (!g_running) return;
+
     if (g_isWalking) {
         UpdateLockedVehicleInputEveryFrame();
     }
@@ -1689,11 +1723,26 @@ static void TelemetryFrameEndCallback(const scs_event_t event, const void* const
     static bool s_lastF9State = false;
     bool f9Down = (GetAsyncKeyState(VK_F9) & 0x8000) != 0;
     if (f9Down && !s_lastF9State) {
-        printf("\n>>> [F9キー押下検知] 現在: %s -> %s 処理を実行します\n",
-               g_isWalking ? "【歩行モード中】" : "【通常運転中】",
-               g_isWalking ? "運転席へ復帰" : "歩行モードへ突入");
-        if (!g_isWalking) EnterWalkMode();
-        else ExitWalkMode("F9キー押下");
+        if (!g_isWalking) {
+            bool menuCursor = IsInGameMenuCursorVisible();
+            // 歩行モード突入判定:
+            // 1. ガレージ/メニュー/ポーズ中ではないこと (!g_gamePaused)
+            // 2. メニュー用のマウスカーソルが表示されていないこと (!menuCursor)
+            // 3. トラックがワールド上にロード済みであること (g_hasTruckWorld)
+            // 4. パーキングブレーキが掛かっていること (g_parkingBrakeOn)
+            if (!g_gamePaused && !menuCursor && g_hasTruckWorld && g_parkingBrakeOn) {
+                printf("\n>>> [F9キー押下] 開始条件クリア (Paused:NO, Cursor:NO, Truck:OK, P-Brake:ON) -> 歩行モード突入\n");
+                EnterWalkMode();
+            } else {
+                printf("\n>>> [F9拒否] 歩行開始条件を満たしていません (Paused:%s, UIカーソル:%s, Truck:%s, P-Brake:%s)\n",
+                       g_gamePaused ? "YES(不可)" : "NO(OK)",
+                       menuCursor ? "表示中(メニュー画面・不可)" : "非表示(OK)",
+                       g_hasTruckWorld ? "OK" : "未ロード(不可)",
+                       g_parkingBrakeOn ? "ON(OK)" : "OFF(解除中・不可)");
+            }
+        } else {
+            ExitWalkMode("F9キー押下");
+        }
     }
     s_lastF9State = f9Down;
 
@@ -1714,7 +1763,7 @@ static void TelemetryFrameEndCallback(const scs_event_t event, const void* const
             return;
         }
 
-        // Alt: Noclip 切替
+        // Alt: Noclip 切替 (歩行中のみ受付)
         static bool s_lastAltState = false;
         bool altDown = (GetAsyncKeyState(VK_MENU) & 0x8000) != 0;
         if (altDown && !s_lastAltState) {
@@ -1974,16 +2023,22 @@ SCS_EXPORT scs_u32_t scs_telemetry_init(const scs_u32_t version, const scs_telem
     if (params->register_for_channel) {
         scs_u32_t res1 = params->register_for_channel("truck.world.placement", 0xFFFFFFFF, SCS_VALUE_TYPE_dplacement, 0, TelemetryPlacementCallback, NULL);
         scs_u32_t res2 = params->register_for_channel("truck.speed", 0xFFFFFFFF, SCS_VALUE_TYPE_float, 0, TelemetrySpeedCallback, NULL);
+        scs_u32_t res3 = params->register_for_channel("truck.brake.parking", 0xFFFFFFFF, SCS_VALUE_TYPE_bool, 0, TelemetryParkingBrakeCallback, NULL);
         TruckerLog("[telemetry] register truck.world.placement: %s (code %d)\n", res1 == 0 ? "OK" : "FAILED", (int)res1);
         TruckerLog("[telemetry] register truck.speed: %s (code %d)\n", res2 == 0 ? "OK" : "FAILED", (int)res2);
+        TruckerLog("[telemetry] register truck.brake.parking: %s (code %d)\n", res3 == 0 ? "OK" : "FAILED", (int)res3);
     }
 
     if (params->register_for_event) {
         g_unregisterEventFn = params->unregister_from_event;
         scs_u32_t evStartRes = params->register_for_event(SCS_TELEMETRY_EVENT_frame_start, TelemetryFrameStartCallback, NULL);
-        scs_u32_t evRes = params->register_for_event(SCS_TELEMETRY_EVENT_frame_end, TelemetryFrameEndCallback, NULL);
+        scs_u32_t evEndRes   = params->register_for_event(SCS_TELEMETRY_EVENT_frame_end, TelemetryFrameEndCallback, NULL);
+        scs_u32_t evPauseRes = params->register_for_event(SCS_TELEMETRY_EVENT_paused, TelemetryPauseCallback, NULL);
+        scs_u32_t evRunRes   = params->register_for_event(SCS_TELEMETRY_EVENT_started, TelemetryPauseCallback, NULL);
         TruckerLog("[telemetry] register SCS_TELEMETRY_EVENT_frame_start: %s (code %d)\n", evStartRes == 0 ? "OK" : "FAILED", (int)evStartRes);
-        TruckerLog("[telemetry] register SCS_TELEMETRY_EVENT_frame_end: %s (code %d)\n", evRes == 0 ? "OK" : "FAILED", (int)evRes);
+        TruckerLog("[telemetry] register SCS_TELEMETRY_EVENT_frame_end: %s (code %d)\n", evEndRes == 0 ? "OK" : "FAILED", (int)evEndRes);
+        TruckerLog("[telemetry] register SCS_TELEMETRY_EVENT_paused: %s (code %d)\n", evPauseRes == 0 ? "OK" : "FAILED", (int)evPauseRes);
+        TruckerLog("[telemetry] register SCS_TELEMETRY_EVENT_started: %s (code %d)\n", evRunRes == 0 ? "OK" : "FAILED", (int)evRunRes);
     }
 
     g_running = true;

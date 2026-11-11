@@ -62,7 +62,17 @@ namespace TruckerWalkAround
 
         private void InitializeComponent()
         {
-            this.Text = "TruckerWalkAround Manager v1.0-beta";
+            this.Text = "TruckerWalkAround Manager v1.0.1";
+            try
+            {
+                string iconPath = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "TWAico.ico");
+                if (File.Exists(iconPath))
+                {
+                    this.Icon = new Icon(iconPath);
+                }
+            }
+            catch { }
+
             this.Size = new Size(760, 780);
             this.StartPosition = FormStartPosition.CenterScreen;
             this.FormBorderStyle = FormBorderStyle.FixedSingle;

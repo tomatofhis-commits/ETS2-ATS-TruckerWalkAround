@@ -17,7 +17,7 @@ if %errorlevel% neq 0 (
 
 echo.
 echo [2/3] Building TruckerWalkAround.exe (C# WinForms GUI Manager)...
-C:\Windows\Microsoft.NET\Framework64\v4.0.30319\csc.exe /target:winexe /out:TruckerWalkAround.exe /platform:x64 /optimize+ TruckerWalkAroundManager.cs
+C:\Windows\Microsoft.NET\Framework64\v4.0.30319\csc.exe /target:winexe /out:TruckerWalkAround.exe /win32icon:TWAico.ico /platform:x64 /optimize+ TruckerWalkAroundManager.cs
 if %errorlevel% neq 0 (
     echo [ERROR] Manager EXE build failed!
     pause
@@ -25,7 +25,7 @@ if %errorlevel% neq 0 (
 )
 
 echo.
-echo [3/3] Building TruckerWalkAround_Setup_v1.0_beta.exe (Inno Setup)...
+echo [3/3] Building TruckerWalkAround_Setup_v1.0.1.exe (Inno Setup)...
 "G:\Program Files (x86)\Inno Setup 6\ISCC.exe" TruckerWalkAround_Setup.iss
 if %errorlevel% neq 0 (
     echo [ERROR] Setup installer build failed!
@@ -36,6 +36,6 @@ if %errorlevel% neq 0 (
 echo.
 echo ======================================================================
 echo  [SUCCESS] All components built and packaged successfully!
-echo  Installer Output: TruckerWalkAround_Setup_v1.0_beta.exe
+echo  Installer Output: TruckerWalkAround_Setup_v1.0.1.exe
 echo ======================================================================
 pause
