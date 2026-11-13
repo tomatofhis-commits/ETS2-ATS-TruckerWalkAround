@@ -972,15 +972,128 @@ static uintptr_t GetCameraObjectBySlot(uint32_t slot) {
 // -----------------------------------------------------------------------------
 // focus2 & region_query ターゲット解決 (ATS 1.62.1.1 確定アドレス直接バインド)
 // -----------------------------------------------------------------------------
+static bool GetTextSectionRange(uintptr_t base, uintptr_t* outStart, size_t* outSize) {
+    if (!base) return false;
+    auto dos = (const IMAGE_DOS_HEADER*)base;
+    if (dos->e_magic != IMAGE_DOS_SIGNATURE) return false;
+    auto nt = (const IMAGE_NT_HEADERS64*)(base + dos->e_lfanew);
+    if (nt->Signature != IMAGE_NT_SIGNATURE) return false;
+    auto sec = IMAGE_FIRST_SECTION(nt);
+    for (WORD i = 0; i < nt->FileHeader.NumberOfSections; ++i) {
+        if (memcmp(sec[i].Name, ".text", 5) == 0) {
+            *outStart = base + sec[i].VirtualAddress;
+            *outSize = sec[i].Misc.VirtualSize;
+            return true;
+        }
+    }
+    return false;
+}
+
+static uintptr_t FindBytesInRange(uintptr_t start, size_t size, const unsigned char* pat, size_t patLen) {
+    if (!start || size < patLen) return 0;
+    const unsigned char* p = (const unsigned char*)start;
+    size_t limit = size - patLen;
+    for (size_t i = 0; i <= limit; ++i) {
+        if (p[i] == pat[0] && memcmp(p + i, pat, patLen) == 0) {
+            return start + i;
+        }
+    }
+    return 0;
+}
+
+static uintptr_t FindSceneGlobalPtrFromRegionQuery(uintptr_t textStart, size_t textSize, uintptr_t regionQueryAddr) {
+    if (!textStart || !regionQueryAddr || textSize < 45) return 0;
+    const unsigned char* p = (const unsigned char*)textStart;
+    struct Candidate { uintptr_t addr; int count; };
+    Candidate cands[16] = {};
+    int numCands = 0;
+
+    for (size_t i = 40; i < textSize - 5; ++i) {
+        if (p[i] == 0xE8) {
+            int32_t rel = *(const int32_t*)(p + i + 1);
+            uintptr_t target = textStart + i + 5 + rel;
+            if (target == regionQueryAddr) {
+                for (size_t j = i - 40; j + 7 <= i; ++j) {
+                    if (p[j] == 0x48 && p[j + 1] == 0x8B && p[j + 2] == 0x0D) {
+                        int32_t disp = *(const int32_t*)(p + j + 3);
+                        uintptr_t ptrAddr = textStart + j + 7 + disp;
+                        if (ptrAddr > g_gameBase + 0x2000000) {
+                            bool found = false;
+                            for (int k = 0; k < numCands; ++k) {
+                                if (cands[k].addr == ptrAddr) {
+                                    cands[k].count++;
+                                    found = true;
+                                    break;
+                                }
+                            }
+                            if (!found && numCands < 16) {
+                                cands[numCands++] = { ptrAddr, 1 };
+                            }
+                            break;
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    uintptr_t bestAddr = 0;
+    int bestCount = 0;
+    for (int k = 0; k < numCands; ++k) {
+        if (cands[k].count > bestCount) {
+            bestCount = cands[k].count;
+            bestAddr = cands[k].addr;
+        }
+    }
+    return bestAddr;
+}
+
 static void LocateSceneFocusModule() {
-    // [ATS 1.62.1.1]
     if (!g_gameBase) return;
 
-    // ATS 1.62.1.1 確定アドレスを直接設定 (機械語解析により 0x143719CA8 と確定)
-    g_focusRoutineTarget = g_gameBase + 0x496340;
-    g_sceneGlobalPtr     = g_gameBase + 0x3719CA8;
-    g_boxBuilderTarget   = g_gameBase + 0x478040;
-    g_regionQueryTarget  = g_gameBase + 0x4949E0;
+    uintptr_t textStart = 0;
+    size_t textSize = 0;
+    if (!GetTextSectionRange(g_gameBase, &textStart, &textSize)) {
+        TruckerLog("[focus2] .text セクションの取得に失敗しました\n");
+        return;
+    }
+
+    static const unsigned char patFocusRoutine[24] = {
+        0x40, 0x53, 0x48, 0x83, 0xEC, 0x30, 0x48, 0x8B,
+        0x89, 0xB0, 0x31, 0x00, 0x00, 0x48, 0x8B, 0xDA,
+        0x48, 0x85, 0xC9, 0x75, 0x0E, 0x88, 0x0A, 0x48
+    };
+    static const unsigned char patBoxBuilder[24] = {
+        0x48, 0x83, 0xEC, 0x48, 0xF3, 0x41, 0x0F, 0x10,
+        0x01, 0x49, 0x8D, 0x41, 0x08, 0x0F, 0x2F, 0x00,
+        0x49, 0x8B, 0xC9, 0x0F, 0x29, 0x74, 0x24, 0x30
+    };
+    static const unsigned char patRegionQuery[24] = {
+        0x48, 0x89, 0x5C, 0x24, 0x08, 0x48, 0x89, 0x74,
+        0x24, 0x10, 0x48, 0x89, 0x7C, 0x24, 0x18, 0x55,
+        0x48, 0x8D, 0xAC, 0x24, 0x80, 0xF0, 0xFF, 0xFF
+    };
+
+    uintptr_t focusRoutine = FindBytesInRange(textStart, textSize, patFocusRoutine, sizeof(patFocusRoutine));
+    uintptr_t boxBuilder   = FindBytesInRange(textStart, textSize, patBoxBuilder, sizeof(patBoxBuilder));
+    uintptr_t regionQuery  = FindBytesInRange(textStart, textSize, patRegionQuery, sizeof(patRegionQuery));
+    uintptr_t sceneGlobal  = FindSceneGlobalPtrFromRegionQuery(textStart, textSize, regionQuery);
+
+    if (!focusRoutine || !boxBuilder || !regionQuery || !sceneGlobal) {
+        g_focusRoutineTarget = 0;
+        g_boxBuilderTarget   = 0;
+        g_regionQueryTarget  = 0;
+        g_sceneGlobalPtr     = 0;
+        TruckerLog("[focus2] パターンスキャン失敗 (focus=0x%llX, box=0x%llX, query=0x%llX, scene=0x%llX)\n",
+               (unsigned long long)focusRoutine, (unsigned long long)boxBuilder,
+               (unsigned long long)regionQuery, (unsigned long long)sceneGlobal);
+        return;
+    }
+
+    g_focusRoutineTarget = focusRoutine;
+    g_boxBuilderTarget   = boxBuilder;
+    g_regionQueryTarget  = regionQuery;
+    g_sceneGlobalPtr     = sceneGlobal;
 
     TruckerLog("[focus2] ターゲット解決完了 (focus_routine: +0x%llX, region_query: +0x%llX, scene_global: +0x%llX)\n",
            (unsigned long long)(g_focusRoutineTarget - g_gameBase),

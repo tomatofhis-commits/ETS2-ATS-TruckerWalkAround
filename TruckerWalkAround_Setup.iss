@@ -2,7 +2,7 @@
 ; TruckerWalkAround Setup Script
 
 #define MyAppName "TruckerWalkAround"
-#define MyAppVersion "1.0.1"
+#define MyAppVersion "1.0.2"
 #define MyAppPublisher "TruckerWalkAround Team"
 #define MyAppExeName "TruckerWalkAround.exe"
 
@@ -14,7 +14,7 @@ AppPublisher={#MyAppPublisher}
 DefaultDirName={autopf}\{#MyAppName}
 DisableProgramGroupPage=yes
 OutputDir=d:\ATS_MOD\walk_free\TruckerWalkAround
-OutputBaseFilename=TruckerWalkAround_Setup_v1.0.1
+OutputBaseFilename=TruckerWalkAround_Setup_v1.0.2
 SetupIconFile=d:\ATS_MOD\walk_free\TruckerWalkAround\TWAico.ico
 Compression=lzma2/ultra64
 SolidCompression=yes

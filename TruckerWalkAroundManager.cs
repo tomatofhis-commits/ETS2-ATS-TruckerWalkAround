@@ -62,7 +62,7 @@ namespace TruckerWalkAround
 
         private void InitializeComponent()
         {
-            this.Text = "TruckerWalkAround Manager v1.0.1";
+            this.Text = "TruckerWalkAround Manager v1.0.2";
             try
             {
                 string iconPath = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "TWAico.ico");
@@ -449,6 +449,22 @@ namespace TruckerWalkAround
                 AppendLog("対応ゲームへの専用プラグイン設置が完了しました。Steamからゲームを起動してください。");
             }
             UpdateStatusLabels();
+        }
+
+        private string ResolvePluginDll(string baseDir, string gameVersion, Dictionary<string, string> versionMap, string fallbackDll)
+        {
+            if (!string.IsNullOrEmpty(gameVersion) && gameVersion != "Unknown")
+            {
+                foreach (var kvp in versionMap)
+                {
+                    if (gameVersion.StartsWith(kvp.Key))
+                    {
+                        string candidate = Path.Combine(baseDir, kvp.Value);
+                        if (File.Exists(candidate)) return candidate;
+                    }
+                }
+            }
+            return Path.Combine(baseDir, fallbackDll);
         }
 
         private string GetGameExeVersion(string exePath)

@@ -25,7 +25,7 @@ if %errorlevel% neq 0 (
 )
 
 echo.
-echo [3/3] Building TruckerWalkAround_Setup_v1.0.1.exe (Inno Setup)...
+echo [3/3] Building TruckerWalkAround_Setup_v1.0.2.exe (Inno Setup)...
 "G:\Program Files (x86)\Inno Setup 6\ISCC.exe" TruckerWalkAround_Setup.iss
 if %errorlevel% neq 0 (
     echo [ERROR] Setup installer build failed!
@@ -36,6 +36,6 @@ if %errorlevel% neq 0 (
 echo.
 echo ======================================================================
 echo  [SUCCESS] All components built and packaged successfully!
-echo  Installer Output: TruckerWalkAround_Setup_v1.0.1.exe
+echo  Installer Output: TruckerWalkAround_Setup_v1.0.2.exe
 echo ======================================================================
 pause
